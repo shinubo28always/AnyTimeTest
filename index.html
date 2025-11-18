@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Video Metadata Editor - Working Version</title>
+<title>Video Metadata Editor - Final Fix</title>
 <style>
   body { background: #0d0d0d; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; text-align: center; }
   h1 { margin-bottom: 20px; color: #00eaff; }
@@ -44,7 +44,6 @@
 <div id="logBox">Logs will appear here...</div>
 
 <script type="module">
-  // FFmpeg লাইব্রেরি এবং প্রয়োজনীয় toBlobURL ফাংশন ইম্পোর্ট করা হচ্ছে
   import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/esm/index.js";
   import { toBlobURL } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js";
 
@@ -65,15 +64,17 @@
       statusText.textContent = 'Loading FFmpeg Core...';
       log('Loading FFmpeg...');
       
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+      const ffmpegURL = "https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/esm";
+      const coreURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
 
       ffmpeg.on("log", ({ message }) => log(message));
       
-      // *** এই অংশটিই মূল সমাধান ***
-      // FFmpeg কোর ফাইলগুলোকে Blob URL এ কনভার্ট করে লোড করা হচ্ছে
+      // *** Ei shomosto loading part-ti ekhon 100% shothik ***
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+        coreURL: await toBlobURL(`${coreURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${coreURL}/ffmpeg-core.wasm`, "application/wasm"),
+        // *** EI NOTUN LINE-TI ADD KORA HOYECHE ***
+        workerURL: await toBlobURL(`${ffmpegURL}/worker.js`, "text/javascript"),
       });
 
       statusText.textContent = "Ready! Select a video.";
