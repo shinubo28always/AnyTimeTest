@@ -3,132 +3,168 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎬 Video Metadata Editor</title>
+<title>Video Metadata Editor — Improved</title>
+
 <style>
-  body {
-    background: #0b0b0b;
-    color: #fff;
-    font-family: "Poppins", sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    min-height: 100vh;
-    padding: 20px;
-  }
-  h1 {
-    margin-top: 20px;
-    font-size: 28px;
-    color: #00bcd4;
-  }
-  input, button {
-    margin: 8px;
-    padding: 10px;
-    border: none;
-    border-radius: 6px;
-    font-size: 16px;
-  }
-  input[type="text"] {
-    width: 260px;
-  }
-  button {
-    cursor: pointer;
-    background: #00bcd4;
-    color: #fff;
-    transition: 0.2s;
-  }
-  button:hover {
-    background: #0097a7;
-  }
-  .form-box {
-    background: #1a1a1a;
-    padding: 20px;
-    border-radius: 10px;
-    margin-top: 20px;
-    box-shadow: 0 0 10px #000;
-  }
-  #log {
-    background: #111;
-    color: #0f0;
-    font-size: 14px;
-    padding: 10px;
-    margin-top: 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
-    height: 150px;
-    overflow-y: auto;
-  }
+body {
+  background: #0d0d0d;
+  color: #fff;
+  font-family: Poppins, sans-serif;
+  padding: 20px;
+  text-align: center;
+}
+h1 {
+  margin-bottom: 20px;
+  color: #00eaff;
+}
+.container {
+  background: #1a1a1a;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 400px;
+  margin: auto;
+}
+input, button {
+  width: 90%;
+  padding: 10px;
+  margin: 8px 0;
+  font-size: 15px;
+  border-radius: 6px;
+  border: none;
+}
+button {
+  background: #00eaff;
+  color: #000;
+  cursor: pointer;
+  font-weight: bold;
+}
+button:hover {
+  background: #009bb0;
+}
+#logBox, #progressBox {
+  background: #111;
+  padding: 10px;
+  margin-top: 20px;
+  border-radius: 10px;
+  text-align: left;
+  height: 150px;
+  overflow-y: auto;
+  font-size: 13px;
+  border: 1px solid #222;
+}
+#progressBar {
+  height: 10px;
+  background: #333;
+  border-radius: 5px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+#progressFill {
+  width: 0%;
+  height: 100%;
+  background: #00eaff;
+}
 </style>
 </head>
 <body>
-  <h1>🎞 Video Metadata Editor</h1>
-  <input type="file" id="uploader" accept="video/*"><br>
-  <div class="form-box">
-    <input type="text" id="title" placeholder="Title"><br>
-    <input type="text" id="author" placeholder="Author / Artist"><br>
-    <input type="text" id="show" placeholder="Show / Series Name"><br>
-    <input type="text" id="encodedBy" placeholder="Encoded By"><br>
-    <input type="text" id="comment" placeholder="Comment"><br>
-    <button id="processBtn">Apply Metadata</button>
+
+<h1>🎬 Video Metadata Editor</h1>
+
+<div class="container">
+  <input type="file" id="fileInput" accept="video/*">
+
+  <input type="text" id="title" placeholder="Title">
+  <input type="text" id="author" placeholder="Author">
+  <input type="text" id="show" placeholder="Show Name">
+  <input type="text" id="encodedBy" placeholder="Encoded By">
+  <input type="text" id="comment" placeholder="Comment">
+
+  <button id="startBtn">Apply Metadata</button>
+</div>
+
+<div id="progressBox">
+  <b>Status:</b><br>
+  <div id="progressText">Waiting...</div>
+
+  <div id="progressBar">
+    <div id="progressFill"></div>
   </div>
-  <div id="log">Status log...</div>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
-  <script>
-    const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
-    const logBox = document.getElementById("log");
-    const uploader = document.getElementById("uploader");
-    const processBtn = document.getElementById("processBtn");
+</div>
 
-    const log = msg => {
-      console.log(msg);
-      logBox.textContent += "\n" + msg;
-      logBox.scrollTop = logBox.scrollHeight;
-    };
+<div id="logBox">Logs...</div>
 
-    processBtn.addEventListener("click", async () => {
-      const file = uploader.files[0];
-      if (!file) return alert("Select a video first!");
+<script type="module">
+import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/esm/index.js";
 
-      log("Loading FFmpeg...");
-      if (!ffmpeg.isLoaded()) await ffmpeg.load();
+const ffmpeg = new FFmpeg();
+const logBox = document.getElementById("logBox");
+const progressText = document.getElementById("progressText");
+const progressFill = document.getElementById("progressFill");
 
-      const name = file.name.split(".")[0];
-      log("Writing file to memory...");
-      ffmpeg.FS("writeFile", file.name, await fetchFile(file));
+const log = msg => {
+  logBox.textContent += msg + "\n";
+  logBox.scrollTop = logBox.scrollHeight;
+};
 
-      const title = document.getElementById("title").value;
-      const author = document.getElementById("author").value;
-      const show = document.getElementById("show").value;
-      const encodedBy = document.getElementById("encodedBy").value;
-      const comment = document.getElementById("comment").value;
-      const output = `output_${Date.now()}.mp4`;
+document.getElementById("startBtn").onclick = async () => {
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) return alert("Select a video first!");
 
-      const args = [
-        "-i", file.name,
-        "-metadata", `title=${title}`,
-        "-metadata", `artist=${author}`,
-        "-metadata", `show=${show}`,
-        "-metadata", `encoded_by=${encodedBy}`,
-        "-metadata", `comment=${comment}`,
-        "-codec", "copy",
-        output
-      ];
+  log("Loading FFmpeg core…");
+  progressText.textContent = "Loading engine…";
 
-      log("Applying metadata...");
-      await ffmpeg.run(...args);
+  await ffmpeg.load({
+    coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
+  });
 
-      log("Processing done! Preparing download...");
-      const data = ffmpeg.FS("readFile", output);
-      const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = output;
-      a.click();
+  log("FFmpeg loaded.");
 
-      log("✅ Done! Video ready to download.");
-    });
-  </script>
+  ffmpeg.on("log", ({ message }) => log(message));
+
+  ffmpeg.on("progress", ({ progress, time }) => {
+    const percent = Math.round(progress * 100);
+    progressFill.style.width = percent + "%";
+
+    progressText.textContent = `Processing: ${percent}% | Time: ${Math.round(time/1000)}s`;
+  });
+
+  const inName = file.name;
+  const outName = "output_" + Date.now() + ".mp4";
+
+  ffmpeg.writeFile(inName, await file.arrayBuffer());
+
+  const title = document.getElementById("title").value;
+  const author = document.getElementById("author").value;
+  const show = document.getElementById("show").value;
+  const encodedBy = document.getElementById("encodedBy").value;
+  const comment = document.getElementById("comment").value;
+
+  progressText.textContent = "Applying metadata…";
+
+  await ffmpeg.exec([
+    "-i", inName,
+    "-metadata", "title=" + title,
+    "-metadata", "artist=" + author,
+    "-metadata", "show=" + show,
+    "-metadata", "encoded_by=" + encodedBy,
+    "-metadata", "comment=" + comment,
+    "-codec", "copy",
+    outName
+  ]);
+
+  progressText.textContent = "Finalizing…";
+
+  const data = await ffmpeg.readFile(outName);
+  const blob = new Blob([data.buffer], { type: "video/mp4" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = outName;
+  link.click();
+
+  progressText.textContent = "Done!";
+  log("Complete!");
+};
+</script>
+
 </body>
 </html>
