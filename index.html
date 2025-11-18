@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Video Metadata Editor - Working Version</title>
-<!-- এই দুটি মেটা ট্যাগ Cross-Origin Isolation এর জন্য দরকার হতে পারে, যদিও লোকাল সার্ভারই মূল সমাধান -->
-<meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
-<meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
 <style>
   body { background: #0d0d0d; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; text-align: center; }
   h1 { margin-bottom: 20px; color: #00eaff; }
@@ -18,7 +15,7 @@
   button:hover:not(:disabled) { background: #00c4d4; }
   button:disabled { background: #555; cursor: not-allowed; }
   #statusBox, #logBox { background: #111; padding: 15px; margin-top: 20px; border-radius: 10px; text-align: left; font-size: 14px; border: 1px solid #222; }
-  #logBox { height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; line-height: 1.5; }
+  #logBox { height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; line-height: 1.5; white-space: pre-wrap; }
   #progressBarContainer { height: 10px; background: #333; border-radius: 5px; margin-top: 10px; overflow: hidden; }
   #progressBar { width: 0%; height: 100%; background: #00eaff; transition: width 0.2s; }
 </style>
@@ -34,7 +31,6 @@
   <input type="text" id="album" placeholder="Album / Show (e.g., Holiday Clips)">
   <input type="text" id="encodedBy" placeholder="Encoded By (e.g., My Encoder)">
   <input type="text" id="comment" placeholder="Comment (e.g., 4K Remaster)">
-
   <button id="startBtn">Apply Metadata</button>
 </div>
 
@@ -48,7 +44,7 @@
 <div id="logBox">Logs will appear here...</div>
 
 <script type="module">
-  // FFmpeg লাইব্রেরি ইম্পোর্ট করা হচ্ছে
+  // FFmpeg লাইব্রেরি এবং প্রয়োজনীয় toBlobURL ফাংশন ইম্পোর্ট করা হচ্ছে
   import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/esm/index.js";
   import { toBlobURL } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js";
 
@@ -58,25 +54,29 @@
   const progressBar = document.getElementById("progressBar");
   const startBtn = document.getElementById("startBtn");
 
-  // লগ দেখানোর জন্য একটি ফাংশন
   const log = (message) => {
-    logBox.innerHTML += `> ${message}\n`;
+    logBox.textContent += `> ${message}\n`;
     logBox.scrollTop = logBox.scrollHeight;
   };
 
-  // FFmpeg লোড করার ফাংশন
   const loadFFmpeg = async () => {
     try {
       startBtn.disabled = true;
-      const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm";
+      statusText.textContent = 'Loading FFmpeg Core...';
+      log('Loading FFmpeg...');
+      
+      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+
       ffmpeg.on("log", ({ message }) => log(message));
       
+      // *** এই অংশটিই মূল সমাধান ***
+      // FFmpeg কোর ফাইলগুলোকে Blob URL এ কনভার্ট করে লোড করা হচ্ছে
       await ffmpeg.load({
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
         wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
       });
 
-      statusText.textContent = "Ready! Select a video and apply metadata.";
+      statusText.textContent = "Ready! Select a video.";
       log("FFmpeg loaded successfully!");
       startBtn.disabled = false;
     } catch (error) {
@@ -86,18 +86,16 @@
     }
   };
 
-  // পেজ লোড হলেই FFmpeg লোড শুরু হবে
   loadFFmpeg();
 
-  // პროგრেসেსর জন্য
   ffmpeg.on("progress", ({ progress }) => {
-    const percent = Math.round(progress * 100);
-    progressBar.style.width = `${percent}%`;
-    statusText.textContent = `Processing: ${percent}%`;
+    if (progress >= 0 && progress <= 1) {
+      const percent = Math.round(progress * 100);
+      progressBar.style.width = `${percent}%`;
+      statusText.textContent = `Processing: ${percent}%`;
+    }
   });
 
-
-  // বাটনে ক্লিক করলে কাজ শুরু হবে
   startBtn.onclick = async () => {
     const fileInput = document.getElementById("fileInput");
     const file = fileInput.files[0];
@@ -107,11 +105,10 @@
     }
 
     startBtn.disabled = true;
-    logBox.innerHTML = "Starting process...\n";
+    logBox.textContent = "Starting process...\n";
     progressBar.style.width = '0%';
 
     try {
-      // ইনপুট ফাইল নাম এবং আউটপুট ফাইল নাম তৈরি করা
       const inName = "input." + file.name.split('.').pop();
       const outName = `output_${Date.now()}.mp4`;
 
@@ -119,11 +116,9 @@
       log("Writing file to FFmpeg's virtual memory...");
       statusText.textContent = "Uploading file to memory...";
       
-      // ফাইলটিকে FFmpeg এর মেমরিতে লেখা হচ্ছে
       await ffmpeg.writeFile(inName, new Uint8Array(await file.arrayBuffer()));
       log("File written successfully.");
 
-      // ইনপুট ফিল্ড থেকে মেটাডেটা নেওয়া হচ্ছে
       const metadataArgs = [];
       const addMeta = (key, value) => {
         if (value) metadataArgs.push("-metadata", `${key}=${value}`);
@@ -137,23 +132,20 @@
 
       log("Executing FFmpeg command...");
       
-      // FFmpeg কমান্ড চালানো হচ্ছে
       await ffmpeg.exec([
         "-i", inName,
         ...metadataArgs,
-        "-c", "copy", // ভিডিও এবং অডিও re-encode না করে শুধু কপি করা হচ্ছে, তাই খুব দ্রুত হবে
+        "-c", "copy",
         outName
       ]);
 
       log("Command executed. Reading output file...");
       statusText.textContent = "Finalizing...";
 
-      // আউটপুট ফাইলটি মেমরি থেকে পড়া হচ্ছে
       const data = await ffmpeg.readFile(outName);
       const blob = new Blob([data.buffer], { type: "video/mp4" });
       const url = URL.createObjectURL(blob);
 
-      // ডাউনলোড লিঙ্ক তৈরি করে স্বয়ংক্রিয়ভাবে ক্লিক করা হচ্ছে
       const a = document.createElement("a");
       a.href = url;
       a.download = outName;
@@ -170,12 +162,10 @@
       statusText.textContent = "An error occurred. Check logs for details.";
       console.error(error);
     } finally {
-      // কাজ শেষ হলে বাটন আবার এনাবল করা হচ্ছে
       startBtn.disabled = false;
       progressBar.style.width = '0%';
     }
   };
-
 </script>
 
 </body>
