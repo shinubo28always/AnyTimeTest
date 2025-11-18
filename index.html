@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Video Metadata Editor - Final Version</title>
+<title>Video Metadata Editor - Working!</title>
 <style>
   body { background: #0d0d0d; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; text-align: center; margin: 0; }
   h1 { margin-bottom: 20px; color: #00eaff; }
@@ -59,17 +59,17 @@
   };
 
   const loadFFmpeg = async () => {
+    const coreURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+    
     try {
       statusText.textContent = 'Loading FFmpeg Core...';
       log('Loading FFmpeg...');
       
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
-      
       ffmpeg.on("log", ({ message }) => log(message));
       
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+        coreURL: await toBlobURL(`${coreURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${coreURL}/ffmpeg-core.wasm`, "application/wasm"),
       });
 
       statusText.textContent = "Ready! Select a video.";
@@ -78,7 +78,7 @@
       startBtn.textContent = "Apply Metadata";
     } catch (error) {
       statusText.textContent = "Failed to load FFmpeg. Check console for errors.";
-      log(`Error loading FFmpeg: ${error}`);
+      log(`Error loading FFmpeg: ${error.toString()}`);
       console.error(error);
     }
   };
@@ -107,7 +107,8 @@
     progressBar.style.width = '0%';
 
     try {
-      const inName = "input." + file.name.split('.').pop();
+      const extension = file.name.split('.').pop() || 'mp4';
+      const inName = `input.${extension}`;
       const outName = `output_${Date.now()}.mp4`;
 
       log(`Input file: ${file.name}`);
