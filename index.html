@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Video Metadata Editor - Final Fix</title>
+<title>Video Metadata Editor - Final Version</title>
 <style>
-  body { background: #0d0d0d; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; text-align: center; }
+  body { background: #0d0d0d; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; text-align: center; margin: 0; }
   h1 { margin-bottom: 20px; color: #00eaff; }
   .container { background: #1a1a1a; padding: 20px; border-radius: 12px; max-width: 450px; margin: auto; box-shadow: 0 4px 15px rgba(0, 234, 255, 0.1); }
   input, button { width: 95%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 6px; border: 1px solid #333; background: #222; color: #fff; }
@@ -15,7 +15,7 @@
   button:hover:not(:disabled) { background: #00c4d4; }
   button:disabled { background: #555; cursor: not-allowed; }
   #statusBox, #logBox { background: #111; padding: 15px; margin-top: 20px; border-radius: 10px; text-align: left; font-size: 14px; border: 1px solid #222; }
-  #logBox { height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; line-height: 1.5; white-space: pre-wrap; }
+  #logBox { height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
   #progressBarContainer { height: 10px; background: #333; border-radius: 5px; margin-top: 10px; overflow: hidden; }
   #progressBar { width: 0%; height: 100%; background: #00eaff; transition: width 0.2s; }
 </style>
@@ -26,16 +26,16 @@
 
 <div class="container">
   <input type="file" id="fileInput" accept="video/*">
-  <input type="text" id="title" placeholder="Title (e.g., My Awesome Video)">
-  <input type="text" id="author" placeholder="Author / Artist (e.g., John Doe)">
-  <input type="text" id="album" placeholder="Album / Show (e.g., Holiday Clips)">
-  <input type="text" id="encodedBy" placeholder="Encoded By (e.g., My Encoder)">
-  <input type="text" id="comment" placeholder="Comment (e.g., 4K Remaster)">
-  <button id="startBtn">Apply Metadata</button>
+  <input type="text" id="title" placeholder="Title">
+  <input type="text" id="author" placeholder="Author / Artist">
+  <input type="text" id="album" placeholder="Album / Show">
+  <input type="text" id="encodedBy" placeholder="Encoded By">
+  <input type="text" id="comment" placeholder="Comment">
+  <button id="startBtn" disabled>Loading Engine...</button>
 </div>
 
 <div id="statusBox">
-  <b>Status:</b> <span id="statusText">Waiting for FFmpeg to load...</span>
+  <b>Status:</b> <span id="statusText">Initializing...</span>
   <div id="progressBarContainer">
     <div id="progressBar"></div>
   </div>
@@ -44,8 +44,8 @@
 <div id="logBox">Logs will appear here...</div>
 
 <script type="module">
-  import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/esm/index.js";
-  import { toBlobURL } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js";
+  import { FFmpeg } from "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/ffmpeg.js";
+  import { toBlobURL } from "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/to-blob-url.js";
 
   const ffmpeg = new FFmpeg();
   const logBox = document.getElementById("logBox");
@@ -60,26 +60,22 @@
 
   const loadFFmpeg = async () => {
     try {
-      startBtn.disabled = true;
       statusText.textContent = 'Loading FFmpeg Core...';
       log('Loading FFmpeg...');
       
-      const ffmpegURL = "https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/esm";
-      const coreURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
-
+      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+      
       ffmpeg.on("log", ({ message }) => log(message));
       
-      // *** Ei shomosto loading part-ti ekhon 100% shothik ***
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${coreURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${coreURL}/ffmpeg-core.wasm`, "application/wasm"),
-        // *** EI NOTUN LINE-TI ADD KORA HOYECHE ***
-        workerURL: await toBlobURL(`${ffmpegURL}/worker.js`, "text/javascript"),
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
       });
 
       statusText.textContent = "Ready! Select a video.";
       log("FFmpeg loaded successfully!");
       startBtn.disabled = false;
+      startBtn.textContent = "Apply Metadata";
     } catch (error) {
       statusText.textContent = "Failed to load FFmpeg. Check console for errors.";
       log(`Error loading FFmpeg: ${error}`);
@@ -106,6 +102,7 @@
     }
 
     startBtn.disabled = true;
+    startBtn.textContent = "Processing...";
     logBox.textContent = "Starting process...\n";
     progressBar.style.width = '0%';
 
@@ -164,6 +161,7 @@
       console.error(error);
     } finally {
       startBtn.disabled = false;
+      startBtn.textContent = "Apply Metadata";
       progressBar.style.width = '0%';
     }
   };
